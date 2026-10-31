@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LINBO Sync Status</title>
+
+<style>
+:root {
+  --ground: #f2f5f8;
+  --surface: #ffffff;
+  --surface-sunk: #e8edf2;
+  --ink: #16202b;
+  --ink-soft: #4a5b6b;
+  --ink-faint: #7d8d9c;
+  --line: #d4dde5;
+  --line-strong: #b9c6d1;
+  --accent: #2f6f8f;
+  --accent-soft: #e3eef4;
+
+  --ok: #2e7d4f;
+  --ok-soft: #e2f0e7;
+  --warn: #9c650b;
+  --warn-soft: #f8eed6;
+  --crit: #b5322e;
+  --crit-soft: #fae3e1;
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(22, 32, 43, .06), 0 8px 24px -16px rgba(22, 32, 43, .28);
+
+  /* System fonts only: no webfont is fetched from a third party. */
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0e161d;
+    --surface: #17222c;
+    --surface-sunk: #101a22;
+    --ink: #e6edf3;
+    --ink-soft: #a7b6c3;
+    --ink-faint: #7a8b99;
+    --line: #26343f;
+    --line-strong: #354756;
+    --accent: #6fb4d4;
+    --accent-soft: #16303d;
+
+    --ok: #67c08c;
+    --ok-soft: #14301f;
+    --warn: #e0a640;
+    --warn-soft: #33260a;
+    --crit: #ef8079;
+    --crit-soft: #381714;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0e161d;
+  --surface: #17222c;
+  --surface-sunk: #101a22;
+  --ink: #e6edf3;
+  --ink-soft: #a7b6c3;
+  --ink-faint: #7a8b99;
+  --line: #26343f;
+  --line-strong: #354756;
+  --accent: #6fb4d4;
+  --accent-soft: #16303d;
+
+  --ok: #67c08c;
+  --ok-soft: #14301f;
+  --warn: #e0a640;
+  --warn-soft: #33260a;
+  --crit: #ef8079;
+  --crit-soft: #381714;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; }
+
+[hidden] { display: none !important; }
+
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 0 56px;
+}
+
+/* --- Header ------------------------------------------------ */
+
+.topbar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 20;
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 20px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.freshness {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.freshness .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+.freshness[data-stale="yes"] .dot { background: var(--warn); }
+.freshness[data-stale="unknown"] .dot { background: var(--ink-faint); }
+
+.freshness time { font-family: var(--mono); color: var(--ink); }
+
+/* --- Summary tiles ----------------------------------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-block: 24px;
+}
+
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tile .n {
+  font-family: var(--mono);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile .label {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.tile[data-sev="ok"] { border-left: 3px solid var(--ok); }
+.tile[data-sev="ok"] .n { color: var(--ok); }
+.tile[data-sev="warn"] { border-left: 3px solid var(--warn); }
+.tile[data-sev="warn"] .n { color: var(--warn); }
+.tile[data-sev="crit"] { border-left: 3px solid var(--crit); }
+.tile[data-sev="crit"] .n { color: var(--crit); }
+
+/* --- Filters ----------------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+input[type="search"]::placeholder { color: var(--ink-faint); }
+
+button {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+button:hover { border-color: var(--accent); color: var(--accent); }
+
+button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- Group tabs -------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+  scrollbar-width: thin;
+}
+
+.tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 14px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  padding: 9px 13px;
+  margin-bottom: -1px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover { color: var(--accent); background: var(--surface); border-color: transparent; }
+
+.tab[aria-selected="true"] {
+  color: var(--ink);
+  background: var(--surface);
+  border-bottom-color: var(--accent);
+}
+
+.tab[aria-selected="true"] .tab-name { font-weight: 600; }
+
+.tab[data-empty="yes"] { opacity: .45; }
+
+.tab .tab-name { font-family: var(--mono); }
+.tab[data-all="yes"] .tab-name { font-family: var(--sans); }
+
+.tab .tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  flex: none;
+}
+
+.tab[data-sev="ok"] .tab-dot { background: var(--ok); }
+.tab[data-sev="warn"] .tab-dot { background: var(--warn); }
+.tab[data-sev="crit"] .tab-dot { background: var(--crit); }
+
+.tab .tab-count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Groups ------------------------------------------------ */
+
+.group {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sunk);
+}
+
+.group-name {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.group-count {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.group-worst { margin-left: auto; }
+
+.scroller { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+th .img-name {
+  display: block;
+  font-family: var(--mono);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td { border-bottom: 0; }
+
+td.host {
+  font-family: var(--mono);
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  white-space: nowrap;
+}
+
+tr[data-sev="ok"] td.host { border-left-color: var(--ok); }
+tr[data-sev="warn"] td.host { border-left-color: var(--warn); }
+tr[data-sev="crit"] td.host { border-left-color: var(--crit); }
+
+td.ip {
+  font-family: var(--mono);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The sync date lives inside the status pill, the applied image follows it
+   in parentheses, as lmncli prints it. Both stay on one line when there is
+   room; if any table would overflow, every cell drops the second part below
+   the pill, so that all rows read the same way (see fitCells). */
+.cell-stack {
+  display: flex;
+  align-items: center;
+  gap: 2px 7px;
+}
+
+#groups.stacked .cell-stack {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cell-version {
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-never { color: var(--ink-faint); font-style: italic; }
+
+/* Last start is not sync data: a rule sets it apart from the images. */
+.cell-start {
+  border-left: 1px solid var(--line-strong);
+}
+
+/* --- Status pills ------------------------------------------ */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.pill[data-sev="ok"] { color: var(--ok); background: var(--ok-soft); }
+.pill[data-sev="warn"] { color: var(--warn); background: var(--warn-soft); }
+.pill[data-sev="crit"] { color: var(--crit); background: var(--crit-soft); }
+
+.pill-date {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-date[data-sev="crit"][data-never] { font-family: var(--sans); font-style: italic; }
+
+/* --- Notices ----------------------------------------------- */
+
+.notice {
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-block: 20px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.notice[data-tone="warn"] { border-left-color: var(--warn); }
+
+.notice strong { color: var(--ink); font-weight: 600; }
+
+.notice pre {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0 0;
+  overflow-x: auto;
+  color: var(--ink);
+}
+
+.empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--ink-faint);
+}
+
+footer {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+footer code {
+  font-family: var(--mono);
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 560px) {
+  .freshness { margin-left: 0; width: 100%; }
+  .group-worst { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div>
+      <div class="eyebrow">linuxmuster &middot; linbo</div>
+      <h1>Client synchronisation</h1>
+    </div>
+    <div class="freshness" id="freshness" data-stale="unknown">
+      <span class="dot" aria-hidden="true"></span>
+      <span>Report:&nbsp;<time id="fileDate">&mdash;</time> <span id="fileAge" class="age"></span></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div id="banner"></div>
+
+  <section class="tiles" id="tiles" aria-label="Summary"></section>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="Filter by hostname or IP..." aria-label="Filter by hostname or IP">
+    <button type="button" id="onlyProblems" aria-pressed="false">Problems only</button>
+    <button type="button" id="notToday" aria-pressed="false" title="Clients with at least one image not synchronised since midnight">Not today</button>
+    <button type="button" id="pickFile">Open a file...</button>
+    <input type="file" id="fileInput" accept=".csv,.txt,.tsv,text/plain" hidden>
+  </div>
+
+  <div class="tabs" id="tabs" role="tablist" aria-label="Hardware groups" hidden></div>
+
+  <main id="groups"></main>
+
+  <footer>
+    <span>Source:&nbsp;<code id="srcName">lastsync.csv</code></span>
+    <span>Thresholds: needs attention after 7&nbsp;days, critical after 30&nbsp;days or never synchronised.</span>
+    <span>Last start: start launched by LINBO, read from the client's linbo.log (<code>--last-start</code>).</span>
+  </footer>
+</div>
+
+<script>
+'use strict';
+
+const SEV = {
+  success: { key: 'ok',   label: 'Up to date' },
+  warning: { key: 'warn', label: 'Needs attention' },
+  danger:  { key: 'crit', label: 'Critical' },
+};
+const RANK = { ok: 0, warn: 1, crit: 2 };
+const WARN_AFTER = 7 * 864e5;
+const CRIT_AFTER = 30 * 864e5;
+
+/* Demo data: replaced as soon as a real report is loaded. */
+const DEMO = `Hostname;IP;Last synchronisation for jammy.qcow2;Status for jammy.qcow2;Applied version of jammy.qcow2;Last synchronisation for data-jammy.qcow2;Status for data-jammy.qcow2;Applied version of data-jammy.qcow2;Group;Last start;Last started OS
+r101-01;10.16.40.11;2026-09-15 07:42;success;2026-09-09 21:14;2026-09-15 07:44;success;2026-08-01 17:14;room101;2026-09-15 07:46;Ubuntu
+r101-02;10.16.40.12;2026-09-15 07:43;success;2026-09-09 21:14;2026-09-15 07:45;success;2026-08-01 17:14;room101;2026-09-15 07:47;Ubuntu Data
+r101-03;10.16.40.13;2026-09-02 08:10;warning;2026-08-22 11:02;2026-09-02 08:12;warning;2026-08-01 17:14;room101;2026-09-12 10:05;Ubuntu
+r101-04;10.16.40.14;Never;danger;;Never;danger;;room101;Never;
+
+Hostname;IP;Last synchronisation for noble.qcow2;Status for noble.qcow2;Applied version of noble.qcow2;Group
+lab-01;10.16.41.21;2026-09-14 19:08;success;2026-09-10 07:23;lab
+lab-02;10.16.41.22;2026-07-28 16:30;danger;2026-07-05 12:00;lab
+lab-03;10.16.41.23;2026-09-05 06:55;warning;2026-09-10 07:23;lab`;
+
+/* --- Reading the report ------------------------------------ */
+
+function detectSep(headerLine) {
+  return headerLine.split('\t').length > headerLine.split(';').length ? '\t' : ';';
+}
+
+/* The older export format wrote the raw linuxmusterTools Python dict. */
+function fromPythonDict(raw) {
+  const date = /'date':\s*([0-9.]+|'[^']*')/.exec(raw);
+  const status = /'status':\s*'([a-z]+)'/.exec(raw);
+  const version = /'imageVersion':\s*'([^']*)'/.exec(raw);
+  let when = null;
+  if (date && date[1] && !date[1].startsWith("'")) when = new Date(parseFloat(date[1]) * 1000);
+  return {
+    when,
+    status: status ? status[1] : null,
+    version: version ? version[1] : null,
+  };
+}
+
+function parseWhen(value) {
+  if (!value) return null;
+  const v = value.trim();
+  if (!v || /^never$/i.test(v)) return null;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(v);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], +iso[4], +iso[5]);
+  const linbo = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(v);
+  if (linbo) return new Date(+linbo[1], +linbo[2] - 1, +linbo[3], +linbo[4], +linbo[5]);
+  const parsed = new Date(v);
+  return isNaN(parsed) ? null : parsed;
+}
+
+function severityFor(when, declared) {
+  if (declared && SEV[declared]) return SEV[declared].key;
+  if (!when) return 'crit';
+  const age = Date.now() - when.getTime();
+  if (age > CRIT_AFTER) return 'crit';
+  if (age > WARN_AFTER) return 'warn';
+  return 'ok';
+}
+
+function parseExport(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const groups = new Map();
+  let head = null;
+  let blockNo = 0;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const sep = head ? head.sep : detectSep(line);
+    const cells = line.split(sep).map(c => c.trim());
+
+    if (/^hostname$/i.test(cells[0])) {
+      blockNo += 1;
+      const images = [];
+      cells.forEach((cell, i) => {
+        const m = /^Last synchronisation for (.+)$/i.exec(cell);
+        if (!m) return;
+        const name = m[1];
+        images.push({
+          name,
+          date: i,
+          status: cells.findIndex(c => c.toLowerCase() === `status for ${name}`.toLowerCase()),
+          version: cells.findIndex(c => c.toLowerCase() === `applied version of ${name}`.toLowerCase()),
+        });
+      });
+      head = {
+        sep, images, blockNo,
+        group: cells.findIndex(c => /^group$/i.test(c)),
+        /* Only written by lmncli linbo lastsync -l/--last-start. */
+        start: cells.findIndex(c => /^last start$/i.test(c)),
+        startOs: cells.findIndex(c => /^last started os$/i.test(c)),
+      };
+      continue;
+    }
+
+    if (!head || cells.length < 2) continue;
+
+    const groupName = head.group >= 0 && cells[head.group]
+      ? cells[head.group]
+      : `Block ${head.blockNo}`;
+
+    const device = { hostname: cells[0], ip: cells[1] || '', images: [], sev: 'ok', start: null };
+
+    if (head.start >= 0) {
+      device.start = {
+        when: parseWhen(cells[head.start]),
+        os: head.startOs >= 0 ? cells[head.startOs] || '' : '',
+      };
+    }
+
+    for (const img of head.images) {
+      const raw = cells[img.date] || '';
+      let when, status, version;
+
+      if (raw.startsWith('{')) {
+        ({ when, status, version } = fromPythonDict(raw));
+      } else {
+        when = parseWhen(raw);
+        status = img.status >= 0 ? (cells[img.status] || '').toLowerCase() : null;
+        version = img.version >= 0 ? cells[img.version] : null;
+      }
+
+      const sev = severityFor(when, status);
+      device.images.push({ name: img.name, when, sev, version: version || null });
+      if (RANK[sev] > RANK[device.sev]) device.sev = sev;
+    }
+
+    if (!groups.has(groupName)) groups.set(groupName, { name: groupName, images: head.images.map(i => i.name), devices: [], hasStart: false });
+    if (head.start >= 0) groups.get(groupName).hasStart = true;
+    groups.get(groupName).devices.push(device);
+  }
+
+  return [...groups.values()];
+}
+
+/* --- Rendering --------------------------------------------- */
+
+const fmtDate = new Intl.DateTimeFormat('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+const fmtLong = new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeStyle: 'short' });
+const fmtRel = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+function relative(date) {
+  const diff = date.getTime() - Date.now();
+  const abs = Math.abs(diff);
+  const units = [['day', 864e5], ['hour', 36e5], ['minute', 6e4]];
+  for (const [unit, ms] of units) {
+    if (abs >= ms || unit === 'minute') return fmtRel.format(Math.round(diff / ms), unit);
+  }
+}
+
+const state = { groups: [], query: '', onlyProblems: false, notToday: false, tab: 'all' };
+
+/* Today is the viewer's calendar day: a sync run after midnight counts. */
+function syncedToday(when) {
+  return when !== null && when.toDateString() === new Date().toDateString();
+}
+
+function visibleDevices(group) {
+  const q = state.query.trim().toLowerCase();
+  return group.devices.filter(d => {
+    if (state.onlyProblems && d.sev === 'ok') return false;
+    if (state.notToday && d.images.every(i => syncedToday(i.when))) return false;
+    if (!q) return true;
+    return d.hostname.toLowerCase().includes(q) || d.ip.toLowerCase().includes(q);
+  });
+}
+
+/* Groups belonging to the selected tab, before the search filter. */
+function tabGroups() {
+  if (state.tab === 'all') return state.groups;
+  return state.groups.filter(g => g.name === state.tab);
+}
+
+function worstOf(devices) {
+  return devices.reduce((acc, d) => RANK[d.sev] > RANK[acc] ? d.sev : acc, 'ok');
+}
+
+function sevLabel(sev) {
+  return Object.values(SEV).find(s => s.key === sev)?.label ?? sev;
+}
+
+function pill(sev) {
+  return `<span class="pill" data-sev="${sev}">${sevLabel(sev)}</span>`;
+}
+
+/* The applied image is itself a date: show it like the sync date. */
+function appliedVersion(value) {
+  if (!value) return '';
+  const when = parseWhen(value);
+  const text = when ? fmtDate.format(when) : value;
+  const title = when ? fmtLong.format(when) : value;
+  return `<span class="cell-version" title="Applied image of ${title}">(image ${text})</span>`;
+}
+
+/* Coloured with the sync thresholds, but a start does not change the
+   severity of a client. */
+function lastStart(start) {
+  if (!start) return '<td class="cell-start cell-never">&mdash;</td>';
+  const sev = severityFor(start.when, null);
+  const title = start.when
+    ? `${sevLabel(sev)} &mdash; start launched ${fmtLong.format(start.when)}`
+    : `${sevLabel(sev)} &mdash; never started by LINBO`;
+  const stamp = `<span class="pill pill-date" data-sev="${sev}"${start.when ? '' : ' data-never'} title="${title}">${
+    start.when ? fmtDate.format(start.when) : 'never'}</span>`;
+  const os = start.os ? `<span class="cell-version">(${start.os})</span>` : '';
+  return `<td class="cell-start"><div class="cell-stack">${stamp}${os}</div></td>`;
+}
+
+function renderTiles() {
+  const scope = tabGroups().flatMap(g => g.devices);
+  const counts = { ok: 0, warn: 0, crit: 0 };
+  scope.forEach(d => counts[d.sev] += 1);
+  const label = state.tab === 'all' ? 'Clients in report' : 'Clients in this group';
+  document.getElementById('tiles').innerHTML = `
+    <div class="tile"><span class="n">${scope.length}</span><span class="label">${label}</span></div>
+    <div class="tile" data-sev="ok"><span class="n">${counts.ok}</span><span class="label">Up to date</span></div>
+    <div class="tile" data-sev="warn"><span class="n">${counts.warn}</span><span class="label">Need attention</span></div>
+    <div class="tile" data-sev="crit"><span class="n">${counts.crit}</span><span class="label">Critical</span></div>`;
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabs');
+
+  /* A single group needs no tab bar. */
+  if (state.groups.length < 2) {
+    bar.hidden = true;
+    bar.innerHTML = '';
+    return;
+  }
+  bar.hidden = false;
+
+  const items = [
+    { id: 'all', name: 'All groups', groups: state.groups, all: true },
+    ...state.groups.map(g => ({ id: g.name, name: g.name, groups: [g] })),
+  ];
+
+  bar.innerHTML = items.map(item => {
+    const shown = item.groups.flatMap(visibleDevices);
+    const total = item.groups.reduce((n, g) => n + g.devices.length, 0);
+    const selected = state.tab === item.id;
+    const sev = shown.length ? worstOf(shown) : '';
+    return `<button type="button" class="tab" role="tab"
+      id="tab-${encodeURIComponent(item.id)}"
+      data-tab="${item.id}"
+      ${item.all ? 'data-all="yes"' : ''}
+      ${sev ? `data-sev="${sev}"` : ''}
+      ${shown.length ? '' : 'data-empty="yes"'}
+      aria-selected="${selected}"
+      tabindex="${selected ? '0' : '-1'}">
+      <span class="tab-dot" aria-hidden="true"></span>
+      <span class="tab-name">${item.name}</span>
+      <span class="tab-count">${shown.length}${shown.length !== total ? `/${total}` : ''}</span>
+    </button>`;
+  }).join('');
+}
+
+function renderGroups() {
+  const host = document.getElementById('groups');
+
+  if (!state.groups.length) {
+    host.innerHTML = `<div class="empty">No client in this report.</div>`;
+    return;
+  }
+
+  const blocks = tabGroups().map(group => {
+    const devices = visibleDevices(group);
+    if (!devices.length) return '';
+
+    const worst = worstOf(devices);
+
+    const head = group.images.map(name =>
+      `<th>Last sync<span class="img-name">${name}</span></th>`).join('');
+
+    const rows = devices.map(d => {
+      const cells = group.images.map(name => {
+        const img = d.images.find(i => i.name === name);
+        if (!img) return '<td class="cell-never">&mdash;</td>';
+        const title = img.when
+          ? `${sevLabel(img.sev)} &mdash; ${fmtLong.format(img.when)}`
+          : `${sevLabel(img.sev)} &mdash; never synchronised`;
+        const stamp = `<span class="pill pill-date" data-sev="${img.sev}"${img.when ? '' : ' data-never'} title="${title}">${
+          img.when ? fmtDate.format(img.when) : 'never'}</span>`;
+        return `<td><div class="cell-stack">${stamp}${appliedVersion(img.version)}</div></td>`;
+      }).join('');
+      const start = group.hasStart ? lastStart(d.start) : '';
+      return `<tr data-sev="${d.sev}"><td class="host">${d.hostname}</td><td class="ip">${d.ip}</td>${cells}${start}</tr>`;
+    }).join('');
+
+    return `<section class="group" role="tabpanel" aria-labelledby="tab-${encodeURIComponent(state.tab)}">
+      <div class="group-head">
+        <span class="group-name">${group.name}</span>
+        <span class="group-count">${devices.length} client${devices.length > 1 ? 's' : ''}${devices.length !== group.devices.length ? ` of ${group.devices.length}` : ''}</span>
+        <span class="group-worst">${pill(worst)}</span>
+      </div>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Client</th><th>IP</th>${head}${group.hasStart ? '<th class="cell-start">Last start</th>' : ''}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>`;
+  }).join('');
+
+  host.innerHTML = blocks || `<div class="empty">No client matches this filter.</div>`;
+  fitCells();
+}
+
+/* Measured on the one-line layout: stack all cells or none. */
+function fitCells() {
+  const host = document.getElementById('groups');
+  host.classList.remove('stacked');
+  const overflow = [...host.querySelectorAll('.scroller')].some(s => s.scrollWidth > s.clientWidth);
+  host.classList.toggle('stacked', overflow);
+}
+
+let fitPending = false;
+window.addEventListener('resize', () => {
+  if (fitPending) return;
+  fitPending = true;
+  requestAnimationFrame(() => { fitPending = false; fitCells(); });
+});
+
+function render() {
+  renderTiles();
+  renderTabs();
+  renderGroups();
+}
+
+function renderFreshness(date, { demo = false } = {}) {
+  const box = document.getElementById('freshness');
+  const el = document.getElementById('fileDate');
+  const age = document.getElementById('fileAge');
+
+  if (demo) {
+    box.dataset.stale = 'unknown';
+    el.textContent = 'demo data';
+    el.removeAttribute('datetime');
+    age.textContent = '';
+    return;
+  }
+  if (!date) {
+    box.dataset.stale = 'unknown';
+    el.textContent = 'file date unknown';
+    el.removeAttribute('datetime');
+    age.textContent = '';
+    return;
+  }
+  const stale = Date.now() - date.getTime() > 26 * 36e5;
+  box.dataset.stale = stale ? 'yes' : 'no';
+  el.textContent = fmtLong.format(date);
+  el.setAttribute('datetime', date.toISOString());
+  age.textContent = `(${relative(date)})`;
+}
+
+function banner(html, tone) {
+  document.getElementById('banner').innerHTML =
+    html ? `<div class="notice"${tone ? ` data-tone="${tone}"` : ''}>${html}</div>` : '';
+}
+
+function load(text, { date, name, demo } = {}) {
+  state.groups = parseExport(text);
+  /* A tab selected on the previous report may no longer exist. */
+  if (state.tab !== 'all' && !state.groups.some(g => g.name === state.tab)) state.tab = 'all';
+  document.getElementById('srcName').textContent = name || 'lastsync.csv';
+  renderFreshness(date, { demo });
+  render();
+}
+
+/* --- Bootstrap --------------------------------------------- */
+
+const params = new URLSearchParams(location.search);
+const SOURCE = params.get('f') || 'lastsync.csv';
+
+load(DEMO, { demo: true, name: 'demo' });
+banner(`<strong>Demo data.</strong> Looking for <code>${SOURCE}</code> next to this page...`);
+
+fetch(SOURCE, { cache: 'no-store' })
+  .then(res => {
+    if (!res.ok) throw new Error(res.status);
+    const lastModified = res.headers.get('Last-Modified');
+    return res.text().then(text => ({ text, date: lastModified ? new Date(lastModified) : null }));
+  })
+  .then(({ text, date }) => {
+    if (!/hostname/i.test(text)) throw new Error('format');
+    load(text, { date, name: SOURCE });
+    banner(date && Date.now() - date.getTime() > 26 * 36e5
+      ? `<strong>Stale report.</strong> The file has not been rewritten for more than 26&nbsp;hours: check the cron job.`
+      : '', 'warn');
+  })
+  .catch(() => {
+    banner(`<strong>No report found.</strong> The data below is demo data.
+      Write the report next to this page with a cron job, then reload:
+      <pre>*/30 * * * * /usr/sbin/lmncli --csv linbo lastsync --last-start &gt; /var/www/html/linbo/${SOURCE}</pre>
+      You can also open a file from this machine with the "Open a file" button.`);
+  });
+
+/* --- Interactions ------------------------------------------ */
+
+document.getElementById('q').addEventListener('input', e => {
+  state.query = e.target.value;
+  renderTabs();
+  renderGroups();
+});
+
+document.getElementById('onlyProblems').addEventListener('click', e => {
+  state.onlyProblems = !state.onlyProblems;
+  e.currentTarget.setAttribute('aria-pressed', String(state.onlyProblems));
+  renderTabs();
+  renderGroups();
+});
+
+document.getElementById('notToday').addEventListener('click', e => {
+  state.notToday = !state.notToday;
+  e.currentTarget.setAttribute('aria-pressed', String(state.notToday));
+  renderTabs();
+  renderGroups();
+});
+
+const tabsBar = document.getElementById('tabs');
+
+tabsBar.addEventListener('click', e => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  state.tab = btn.dataset.tab;
+  render();
+});
+
+tabsBar.addEventListener('keydown', e => {
+  const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+  if (!step) return;
+  e.preventDefault();
+  const tabs = [...tabsBar.querySelectorAll('.tab')];
+  const i = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+  const next = tabs[(i + step + tabs.length) % tabs.length];
+  if (!next) return;
+  state.tab = next.dataset.tab;
+  render();
+  const focus = tabsBar.querySelector('.tab[aria-selected="true"]');
+  if (focus) { focus.focus(); focus.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+});
+
+document.getElementById('pickFile').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  file.text().then(text => {
+    load(text, { date: new Date(file.lastModified), name: file.name });
+    banner('');
+  });
+});
+
+['dragover', 'drop'].forEach(type => {
+  document.addEventListener(type, e => {
+    e.preventDefault();
+    if (type !== 'drop') return;
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    file.text().then(text => {
+      load(text, { date: new Date(file.lastModified), name: file.name });
+      banner('');
+    });
+  });
+});
+</script>
+
+</body>
+</html>
+
+
+
